@@ -103,6 +103,25 @@ describe("getPageContent captureAs", () => {
         await htmlToMarkdown(PAGE, LINK)
       );
     });
+
+    it("passes boolean false for headless on macOS development", async () => {
+      mockFetch();
+      const nodeEnv = process.env.NODE_ENV;
+      const platform = Object.getOwnPropertyDescriptor(process, "platform");
+      process.env.NODE_ENV = "development";
+      Object.defineProperty(process, "platform", {
+        configurable: true,
+        value: "darwin",
+      });
+      try {
+        await scrape("html");
+        const options = PuppeteerWebBaseLoader.mock.calls.at(-1)[1];
+        expect(options.launchOptions.headless).toBe(false);
+      } finally {
+        process.env.NODE_ENV = nodeEnv;
+        Object.defineProperty(process, "platform", platform);
+      }
+    });
   });
 
   describe("via the fetch fallback when puppeteer throws", () => {

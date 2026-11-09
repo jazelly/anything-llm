@@ -16,6 +16,7 @@ const {
 const RuntimeSettings = require("../../utils/runtimeSettings");
 const { htmlToMarkdown } = require("../helpers/htmlToMarkdown");
 const { decodePathname } = require("../../utils/url");
+const { collectorHeadlessMode } = require("../../utils/browserLaunch");
 
 /**
  * Scrape a generic URL and return the content in the specified format
@@ -146,30 +147,16 @@ async function getPageContent({ link, captureAs = "text", headers = {} }) {
   try {
     let pageContents = [];
     const runtimeSettings = new RuntimeSettings();
-
-    /** @type {import('puppeteer').PuppeteerLaunchOptions} */
-    let launchConfig = { headless: "new" };
-
-    /* On MacOS 15.1, the headless=new option causes the browser to crash immediately.
-     * It is not clear why this is the case, but it is reproducible. Since AnythinglLM
-     * in production runs in a container, we can disable headless mode to workaround the issue for development purposes.
-     *
-     * This may show a popup window when scraping a page in development mode.
-     * This is expected behavior if seen in development mode on MacOS 15+
-     */
-    if (
-      process.platform === "darwin" &&
-      process.env.NODE_ENV === "development"
-    ) {
+    const headless = collectorHeadlessMode();
+    if (headless === false) {
       console.log(
         "Darwin Development Mode: Disabling headless mode to prevent Chromium from crashing."
       );
-      launchConfig.headless = "false";
     }
 
     const loader = new PuppeteerWebBaseLoader(link, {
       launchOptions: {
-        headless: launchConfig.headless,
+        headless,
         ignoreHTTPSErrors: true,
         args: runtimeSettings.get("browserLaunchArgs"),
       },

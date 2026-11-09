@@ -210,6 +210,30 @@ describe("WebsiteDepth extractLinks robustness", () => {
 });
 
 describe("WebsiteDepth websiteScraper", () => {
+  it("passes boolean false for headless on macOS development", async () => {
+    mockSite({
+      "https://example.com/docs/page": "<p>only</p>",
+    });
+    const nodeEnv = process.env.NODE_ENV;
+    const platform = Object.getOwnPropertyDescriptor(process, "platform");
+    process.env.NODE_ENV = "development";
+    Object.defineProperty(process, "platform", {
+      configurable: true,
+      value: "darwin",
+    });
+    try {
+      await websiteScraper("https://example.com/docs/page", 1, 1);
+      const modes = PuppeteerWebBaseLoader.mock.calls.map(
+        (call) => call[1].launchOptions.headless
+      );
+      expect(modes.length).toBeGreaterThan(0);
+      expect(modes.every((mode) => mode === false)).toBe(true);
+    } finally {
+      process.env.NODE_ENV = nodeEnv;
+      Object.defineProperty(process, "platform", platform);
+    }
+  });
+
   it("crawls, scrapes and stores every in-scope page", async () => {
     mockSite({
       "https://example.com/docs/page":
