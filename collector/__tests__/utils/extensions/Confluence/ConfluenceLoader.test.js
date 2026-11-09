@@ -72,6 +72,68 @@ describe("ConfluencePagesLoader", () => {
     );
   });
 
+  test("a content item without a storage body does not throw", () => {
+    const loader = new ConfluencePagesLoader({
+      baseUrl: "https://example.com",
+      spaceKey: "SP",
+      cloud: false,
+    });
+
+    const document = loader.createDocumentFromPage({
+      id: "att-1",
+      type: "attachment",
+      title: "diagram.png",
+      status: "current",
+    });
+
+    expect(document.pageContent).toBe("");
+    expect(document.metadata).toMatchObject({
+      id: "att-1",
+      title: "diagram.png",
+      url: "https://example.com/spaces/SP/pages/att-1",
+    });
+  });
+
+  test("load keeps the other pages when one result has no storage body", async () => {
+    let calls = 0;
+    jest.spyOn(global, "fetch").mockImplementation(async () => {
+      calls += 1;
+      const page =
+        calls === 1
+          ? {
+              size: 2,
+              results: [
+                {
+                  id: "1",
+                  type: "page",
+                  title: "Notes",
+                  status: "current",
+                  body: { storage: { value: "<p>Hello</p>" } },
+                },
+                {
+                  id: "2",
+                  type: "attachment",
+                  title: "diagram.png",
+                  status: "current",
+                },
+              ],
+            }
+          : { size: 0, results: [] };
+      return { ok: true, json: async () => page };
+    });
+
+    const loader = new ConfluencePagesLoader({
+      baseUrl: "https://example.com",
+      spaceKey: "SP",
+      cloud: false,
+    });
+    const documents = await loader.load();
+
+    expect(documents).toHaveLength(2);
+    expect(documents[0].pageContent).toBe("Hello");
+    expect(documents[1].pageContent).toBe("");
+  });
+
   test("load rejects with the HTTP status instead of resolving to no pages", async () => {
     jest
       .spyOn(global, "fetch")

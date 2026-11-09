@@ -100,6 +100,28 @@ class ConfluencePagesLoader {
   }
 
   createDocumentFromPage(page) {
+    const pageUrl = `${this.baseUrl}${this.cloud ? "/wiki" : ""}/spaces/${
+      this.spaceKey
+    }/pages/${page.id}`;
+    const metadata = {
+      id: page.id,
+      status: page.status,
+      title: page.title,
+      type: page.type,
+      url: pageUrl,
+      version: page.version?.number,
+      updated_by: page.version?.by?.displayName,
+      updated_at: page.version?.when,
+    };
+
+    // The content API also returns attachments and comments. Those have no
+    // storage body, and reading page.body.storage.value throws, which used to
+    // abort the entire space import.
+    const storageValue = page.body?.storage?.value;
+    if (typeof storageValue !== "string") {
+      return { pageContent: "", metadata };
+    }
+
     const codeBlocks = [];
     const extractCodeBlocks = (content) => {
       const codeBlockRegex =
@@ -118,7 +140,7 @@ class ConfluencePagesLoader {
       });
     };
 
-    const contentWithCodeBlocks = extractCodeBlocks(page.body.storage.value);
+    const contentWithCodeBlocks = extractCodeBlocks(storageValue);
     const plainTextContent = htmlToText(contentWithCodeBlocks, {
       wordwrap: false,
       preserveNewlines: true,
@@ -129,22 +151,9 @@ class ConfluencePagesLoader {
         /ANYTHINGLLMCODEBLOCK(\d+)/g,
         (marker, index) => codeBlocks[index] ?? marker
       );
-    const pageUrl = `${this.baseUrl}${this.cloud ? "/wiki" : ""}/spaces/${
-      this.spaceKey
-    }/pages/${page.id}`;
-
     return {
       pageContent: textWithPreservedStructure,
-      metadata: {
-        id: page.id,
-        status: page.status,
-        title: page.title,
-        type: page.type,
-        url: pageUrl,
-        version: page.version?.number,
-        updated_by: page.version?.by?.displayName,
-        updated_at: page.version?.when,
-      },
+      metadata,
     };
   }
 }
