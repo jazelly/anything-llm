@@ -99,9 +99,13 @@ function trashFile(filepath) {
 
 function createdDate(filepath) {
   try {
-    const { birthtimeMs, birthtime } = fs.statSync(filepath);
-    if (birthtimeMs === 0) throw new Error("Invalid stat for file!");
-    return birthtime.toLocaleString();
+    const { birthtimeMs, birthtime, mtimeMs, mtime } = fs.statSync(filepath);
+    // Docker and other Linux filesystems often report birthtime as the epoch.
+    // Treating that as missing used to stamp every collected document
+    // "unknown". The file's mtime is the next best clock we actually have.
+    const created = birthtimeMs > 0 ? birthtime : mtimeMs > 0 ? mtime : null;
+    if (!created || Number.isNaN(created.getTime())) return "unknown";
+    return created.toLocaleString();
   } catch {
     return "unknown";
   }
